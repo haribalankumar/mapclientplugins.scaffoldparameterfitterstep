@@ -1,0 +1,6 @@
+
+<RCC>
+  <qresource prefix="scaffoldparameterfitterstep">
+    <file>images/parametric_fitting_plugin.png</file>
+  </qresource>
+</RCC>
