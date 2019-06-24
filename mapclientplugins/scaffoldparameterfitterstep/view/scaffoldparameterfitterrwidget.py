@@ -26,6 +26,8 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
 
     def _make_connections(self):
         self._ui.sceneviewerWidget.graphics_initialized.connect(self._graphics_initialized)
+        self._ui.meshType_label.setText(self._model.get_scaffold_type())
+        self._ui.parameterSet_label.setText(self._model.get_species_type())
 
     def create_graphics(self, is_temporal):
         self._model.create_graphics(is_temporal)
@@ -40,6 +42,7 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
 
     def _graphics_initialized(self):
         scene_viewer = self._ui.sceneviewerWidget.get_zinc_sceneviewer()
+        self._refresh_scaffold_options()
         if scene_viewer is not None:
             scene = self._model.get_scene()
             self._ui.sceneviewerWidget.set_scene(scene)
@@ -71,4 +74,22 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
 
     def _done_clicked(self):
         self._done_callback()
+
+    def _refresh_scaffold_options(self):
+        layout = self._ui.meshTypeOptions_frame.layout()
+        while layout.count():
+            child = layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
+        option_names = self._model.get_scaffold_parameters()
+        for key, value in option_names.items():
+            label = QtGui.QLabel(self._ui.meshTypeOptions_frame)
+            label.setObjectName(key)
+            label.setText(key)
+            layout.addWidget(label)
+            line_edit = QtGui.QLineEdit(self._ui.meshTypeOptions_frame)
+            line_edit.setObjectName(key)
+            line_edit.setText(str(value))
+            layout.addWidget(line_edit)
+
 
