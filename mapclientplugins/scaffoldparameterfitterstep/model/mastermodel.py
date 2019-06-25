@@ -1,12 +1,9 @@
-import json
 import platform
 
 import math
 
 from opencmiss.zinc.context import Context
 from opencmiss.zinc.field import Field
-from opencmiss.zinc.status import OK as ZINC_OK
-from opencmiss.zinc.streamregion import StreaminformationRegion
 
 from .scaffoldmodel import ScaffoldModel
 from .datamodel import DataModel
@@ -17,33 +14,6 @@ if platform.system() == 'Windows':
     WINDOWS_OS_FLAG = True
 else:
     LINUX_OS_FLAG = True
-
-
-def _read_aligner_description(scaffold_region, data_region, scaffold_description, data_description):
-    scaffold_stream_information = scaffold_region.createStreaminformationRegion()
-    memory_resource = scaffold_stream_information.createStreamresourceMemoryBuffer(scaffold_description['elements3D'])
-    scaffold_stream_information.setResourceDomainTypes(memory_resource, Field.DOMAIN_TYPE_MESH3D)
-    memory_resource = scaffold_stream_information.createStreamresourceMemoryBuffer(scaffold_description['elements2D'])
-    scaffold_stream_information.setResourceDomainTypes(memory_resource, Field.DOMAIN_TYPE_MESH2D)
-    memory_resource = scaffold_stream_information.createStreamresourceMemoryBuffer(scaffold_description['elements1D'])
-    scaffold_stream_information.setResourceDomainTypes(memory_resource, Field.DOMAIN_TYPE_MESH1D)
-    memory_resource = scaffold_stream_information.createStreamresourceMemoryBuffer(scaffold_description['nodes'])
-    scaffold_stream_information.setResourceDomainTypes(memory_resource, Field.DOMAIN_TYPE_NODES)
-
-    data_stream_information = data_region.createStreaminformationRegion()
-
-    for key in data_description:
-        if key != 'elements3D' and key != 'elements2D' and key != 'elements1D' and key != 'nodes':
-            if isinstance(key, float):
-                time = key
-            else:
-                time = float(key)
-
-            memory_resource = data_stream_information.createStreamresourceMemoryBuffer(data_description[key])
-            data_stream_information.setResourceDomainTypes(memory_resource, Field.DOMAIN_TYPE_DATAPOINTS)
-            data_stream_information.setResourceAttributeReal(memory_resource, StreaminformationRegion.ATTRIBUTE_TIME,
-                                                             time)
-    return scaffold_stream_information, data_stream_information
 
 
 def _read_model_description(region, description):
@@ -65,30 +35,21 @@ class MasterModel(object):
 
         self._context = Context(context)
         self._material_module = self._context.getMaterialmodule()
-
-        # self._region = self._context.getDefaultRegion()
         self._region = self._context.createRegion()
         self._region.setName('parent_region')
-
-        self._initial_scaffold_region = self._region.createChild('scaffold_region')
-        self._initial_data_region = self._region.createChild('datapoint_region')
 
         self._scaffold_coordinate_field = None
         self._data_coordinate_field = None
 
         scaffold_description, data_description = aligner_description[0], aligner_description[1]
-
-        self._scaffold_stream_information, self._data_stream_information = _read_aligner_description(
-            self._initial_scaffold_region, self._initial_data_region, scaffold_description, data_description)
-
         self._generator_model_description = model_description
 
-        self._scaffold_model = ScaffoldModel(self._context, self._initial_scaffold_region, self._material_module,
+        self._scaffold_model = ScaffoldModel(self._context, self._region, scaffold_description, self._material_module,
                                              self._generator_model_description.get_parameters())
-        self._data_model = DataModel(self._context, self._initial_data_region, self._material_module)
+        self._data_model = DataModel(self._context, self._region, data_description, self._material_module)
 
+        self._initialise_scaffold_and_data()
         self._scene = self._initialise_scene()
-
         self._settings_change_callback = None
         self._settings = dict(yaw=0.0, pitch=0.0, roll=0.0,
                               X=0.0, Y=0.0, Z=0.0)
@@ -107,9 +68,6 @@ class MasterModel(object):
     def get_context(self):
         return self._context
 
-    def get_streams(self):
-        return self._scaffold_stream_information, self._data_stream_information
-
     def get_scaffold_parameters(self):
         return self._generator_model_description.get_parameters()
 
@@ -124,48 +82,6 @@ class MasterModel(object):
 
     def get_generator_model(self):
         return self._generator_model_description.get_generator()
-
-    def _get_mesh(self):
-        fm = self._initial_scaffold_region.getFieldmodule()
-        for dimension in range(3, 0, -1):
-            mesh = fm.findMeshByDimension(dimension)
-            if mesh.getSize() > 0:
-                return mesh
-        raise ValueError('Model contains no mesh')
-
-    def _get_model_coordinate_field(self):
-        mesh = self._get_mesh()
-        element = mesh.createElementiterator().next()
-        if not element.isValid():
-            raise ValueError('Model contains no elements')
-        fm = self._initial_scaffold_region.getFieldmodule()
-        cache = fm.createFieldcache()
-        cache.setElement(element)
-        field_iter = fm.createFielditerator()
-        field = field_iter.next()
-        while field.isValid():
-            if field.isTypeCoordinate() and (field.getNumberOfComponents() <= 3):
-                if field.isDefinedAtLocation(cache):
-                    return field
-            field = field_iter.next()
-        raise ValueError('Could not determine model coordinate field')
-
-    def _get_data_coordinate_field(self):
-        fm = self._initial_data_region.getFieldmodule()
-        data_point_set = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
-        data_point = data_point_set.createNodeiterator().next()
-        if not data_point.isValid():
-            raise ValueError('Data cloud is empty')
-        cache = fm.createFieldcache()
-        cache.setNode(data_point)
-        field_iter = fm.createFielditerator()
-        field = field_iter.next()
-        while field.isValid():
-            if field.isTypeCoordinate() and (field.getNumberOfComponents() <= 3):
-                if field.isDefinedAtLocation(cache):
-                    return field
-            field = field_iter.next()
-        raise ValueError('Could not determine data coordinate field')
 
     def get_scene(self):
         if self._scene is not None:
@@ -182,23 +98,15 @@ class MasterModel(object):
     def get_roll_value(self):
         return self._settings['roll']
 
-    def initialise_scaffold_and_data(self, scaffold_stream, data_stream):
+    def _initialise_scaffold_and_data(self):
         if self._scaffold_coordinate_field is not None:
             self._scaffold_coordinate_field = None
-        result = self._initial_scaffold_region.read(scaffold_stream)
-        if result != ZINC_OK:
-            raise ValueError('Failed to read and initialise scaffold.')
-
         if self._data_coordinate_field is not None:
             self._data_coordinate_field = None
-        result = self._initial_data_region.read(data_stream)
-        if result != ZINC_OK:
-            raise ValueError('Failed to read and initialise data cloud.')
-
-        self._scaffold_coordinate_field = self._get_model_coordinate_field()
-        self._data_coordinate_field = self._get_data_coordinate_field()
-        self._scaffold_model.set_coordinate_field(self._scaffold_coordinate_field)
-        self._data_model.set_coordinate_field(self._data_coordinate_field)
+        self._scaffold_model.initialise_scaffold()
+        self._data_model.initialise_data()
+        self._scaffold_coordinate_field = self._scaffold_model.get_model_coordinate_field()
+        self._data_coordinate_field = self._data_model.get_data_coordinate_field()
 
     def _initialise_scene(self):
         self._scaffold_model.initialise_scene()
@@ -243,7 +151,6 @@ class MasterModel(object):
         angles = [math.radians(x) for x in angles]
         rotation = maths.eulerToRotationMatrix3(angles)
         zincutils.transform_coordinates(self._scaffold_coordinate_field, rotation)
-        # self._scaffold_model.set_scaffold_graphics_post_rotate(self._transformed_scaffold_field)
         self._apply_callback()
 
     def translate_scaffold(self, axis, value, rate):
