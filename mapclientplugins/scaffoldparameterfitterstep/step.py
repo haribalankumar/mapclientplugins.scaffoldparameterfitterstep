@@ -8,7 +8,8 @@ from PySide import QtGui
 
 from mapclient.mountpoints.workflowstep import WorkflowStepMountPoint
 from mapclientplugins.scaffoldparameterfitterstep.configuredialog import ConfigureDialog
-
+from mapclientplugins.scaffoldparameterfitterstep.model.mastermodel import MasterModel
+from mapclientplugins.scaffoldparameterfitterstep.view.scaffoldparameterfitterrwidget import ScaffoldParameterFitterWidget
 
 class ScaffoldParameterFitterStep(WorkflowStepMountPoint):
     """
@@ -25,15 +26,19 @@ class ScaffoldParameterFitterStep(WorkflowStepMountPoint):
         # Ports:
         self.addPort(('http://physiomeproject.org/workflow/1.0/rdf-schema#port',
                       'http://physiomeproject.org/workflow/1.0/rdf-schema#uses',
-                      '<not-set>'))
+                      'model_description'))
         self.addPort(('http://physiomeproject.org/workflow/1.0/rdf-schema#port',
                       'http://physiomeproject.org/workflow/1.0/rdf-schema#provides',
                       '<not-set>'))
         # Port data:
-        self._portData0 = None # <not-set>
-        self._portData1 = None # <not-set>
+        self._modelDescription = None  # model_description
+        self._portData1 = None  # <not-set>
         # Config:
         self._config = {}
+        self._view = None
+        self._model = None
+        self._alignerDescription = None
+        self._generatorModelDescription = None
         self._config['identifier'] = ''
 
     def execute(self):
@@ -43,6 +48,21 @@ class ScaffoldParameterFitterStep(WorkflowStepMountPoint):
         may be connected up to a button in a widget for example.
         """
         # Put your execute step code here before calling the '_doneExecution' method.
+        if self._view is None:
+            context = 'ScaffoldParameterFitterContext'
+            rigidAlignerDescription, modelDescription = self._modelDescription[0], self._modelDescription[1]
+            scaffoldDescription = rigidAlignerDescription.get_scaffold_region_description()
+            dataDescription = rigidAlignerDescription.get_data_region_description()
+            self._model = MasterModel(context, [scaffoldDescription, dataDescription], modelDescription)
+            self._view = ScaffoldParameterFitterWidget(self._model)
+            self._view.register_done_execution(self._myDoneExecution)
+            self._view.create_graphics(rigidAlignerDescription.data_is_temporal)
+
+        self._setCurrentWidget(self._view)
+
+    def _myDoneExecution(self):
+        self._model = None
+        self._view = None
         self._doneExecution()
 
     def setPortData(self, index, dataIn):
@@ -54,7 +74,7 @@ class ScaffoldParameterFitterStep(WorkflowStepMountPoint):
         :param index: Index of the port to return.
         :param dataIn: The data to set for the port at the given index.
         """
-        self._portData0 = dataIn # <not-set>
+        self._modelDescription = dataIn  # model_description
 
     def getPortData(self, index):
         """
