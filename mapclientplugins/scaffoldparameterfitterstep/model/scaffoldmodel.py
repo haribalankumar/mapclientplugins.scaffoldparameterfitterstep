@@ -1,7 +1,6 @@
 from opencmiss.zinc.field import Field
 from opencmiss.zinc.graphics import Graphics
 from opencmiss.zinc.material import Material
-from opencmiss.zinc.status import OK as ZINC_OK
 from opencmiss.zinc.streamregion import StreaminformationRegion
 from opencmiss.utils.zinc import create_finite_element_field
 
@@ -23,37 +22,37 @@ def _read_aligner_description(scaffold_region, scaffold_description):
 
 class ScaffoldModel(object):
 
-    def __init__(self, context, region, scaffold_description, material_module, parameters):
+    def __init__(self, context, region, coordinates, material_module, parameters):
 
         self._context = context
         self._parent_region = region
-        self._region = self._parent_region.createChild('scaffold_region')
+        self._region = region
+        self._coordinate_field = None
         self._material_module = material_module
         self._parameters = parameters.keys()
 
-        self._sir = _read_aligner_description(self._region, scaffold_description)
+        # self._sir = _read_aligner_description(self._region, scaffold_description)
 
         self._scaffold = None
         self._scaffold_options = None
         self._temp_region = None
         self._scene = None
-        self._coordinate_field = None
         self._scaffold_is_time_aware = None
         self._scaffold_fit_parameters = None
         self._initialise_surface_material()
 
-    def initialise_region(self):
-        self.clear()
-        if self._region is not None:
-            self._region = None
-        if self._coordinate_field is not None:
-            self._coordinate_field = None
-        self._region = self._parent_region.createChild('scaffold_region')
-        self._coordinate_field = create_finite_element_field(self._region)
+    # def initialise_region(self):
+    #     self.clear()
+        # if self._region is not None:
+        #     self._region = None
+        # if self._coordinate_field is not None:
+            # self._coordinate_field = None
+        # self._region = self._parent_region.createChild('scaffold_region')
+        # self._coordinate_field = create_finite_element_field(self._region)
 
-    def clear(self):
-        if self._region:
-            self._parent_region.removeChild(self._region)
+    # def clear(self):
+    #     if self._region:
+    #         self._parent_region.removeChild(self._region)
 
     def get_region(self):
         return self._region
@@ -132,11 +131,6 @@ class ScaffoldModel(object):
         return self._scaffold_options
 
     def initialise_scaffold(self):
-        if self._coordinate_field is not None:
-            self._coordinate_field = None
-        result = self._region.read(self._sir)
-        if result != ZINC_OK:
-            raise ValueError('Failed to read and initialise scaffold.')
         self._coordinate_field = self.get_model_coordinate_field()
 
     def _initialise_surface_material(self):
@@ -207,13 +201,13 @@ class ScaffoldModel(object):
         self._temp_region = self._region.createRegion()
         self._scaffold.generateMesh(self._temp_region, temp_options)
 
-    def _generate_mesh(self, options):
-        self.initialise_region()
-        field_module = self._region.getFieldmodule()
-        field_module.beginChange()
-        self._scaffold.generateMesh(self._region, options)
-        field_module.defineAllFaces()
-        field_module.endChange()
+    # def _generate_mesh(self, options):
+    #     self.initialise_region()
+    #     field_module = self._region.getFieldmodule()
+    #     field_module.beginChange()
+    #     self._scaffold.generateMesh(self._region, options)
+    #     field_module.defineAllFaces()
+    #     field_module.endChange()
 
     def set_scaffold_options(self, options):
         self._scaffold_options = options
@@ -222,7 +216,9 @@ class ScaffoldModel(object):
             parameters.append(self._scaffold_options[option])
         self._scaffold_fit_parameters = parameters
 
-    def initialise_scene(self, ):
+    def initialise_scene(self):
+        if self._region.getScene():
+            self._region.getScene().removeAllGraphics()
         self._scene = self._region.getScene()
 
     def set_scaffold(self, scaffold):
