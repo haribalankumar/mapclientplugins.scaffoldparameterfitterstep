@@ -2,7 +2,6 @@ import platform
 
 import math
 
-from opencmiss.zinc.context import Context
 from opencmiss.zinc.field import Field
 
 from .scaffoldmodel import ScaffoldModel
@@ -31,22 +30,21 @@ def _read_model_description(region, description):
 
 class MasterModel(object):
 
-    def __init__(self, context, aligner_description, model_description):
+    def __init__(self,  aligner_description):
 
-        self._context = Context(context)
+        self._description = aligner_description
+        self._context = self._description.get_context()
         self._material_module = self._context.getMaterialmodule()
-        self._region = self._context.createRegion()
-        self._region.setName('parent_region')
-
+        self._region = self._description.get_scaffold_region()
+        self._parameters = self._description.get_parameters()
+        self._data_description = self._description.get_data_region_description()
+        self._generator_settings = self._description.get_generator_settings()
         self._scaffold_coordinate_field = None
         self._data_coordinate_field = None
 
-        scaffold_description, data_description = aligner_description[0], aligner_description[1]
-        self._generator_model_description = model_description
-
-        self._scaffold_model = ScaffoldModel(self._context, self._region, scaffold_description, self._material_module,
-                                             self._generator_model_description.get_parameters())
-        self._data_model = DataModel(self._context, self._region, data_description, self._material_module)
+        self._scaffold_model = ScaffoldModel(self._context, self._region, None,
+                                             self._material_module, self._parameters)
+        self._data_model = DataModel(self._context, self._region, self._data_description, self._material_module)
 
         self._initialise_scaffold_and_data()
         self._scene = self._initialise_scene()
@@ -69,19 +67,22 @@ class MasterModel(object):
         return self._context
 
     def get_scaffold_parameters(self):
-        return self._generator_model_description.get_parameters()
+        return self._parameters
 
     def get_scaffold_type(self):
-        return self._generator_model_description.get_model_name()
+        return self._description.get_model_name()
 
     def get_species_type(self):
-        return self._generator_model_description.get_model_species()
+        return self._description.get_species()
 
     def get_scaffold_package_class(self):
-        return self._generator_model_description.get_scaffold_package()
+        return self._description.get_scaffold_package()
 
     def get_generator_model(self):
-        return self._generator_model_description.get_generator()
+        return self._description.get_generator_model()
+
+    def get_generator_settings(self):
+        return self._generator_settings
 
     def get_scene(self):
         if self._scene is not None:
@@ -103,6 +104,7 @@ class MasterModel(object):
             self._scaffold_coordinate_field = None
         if self._data_coordinate_field is not None:
             self._data_coordinate_field = None
+
         self._scaffold_model.initialise_scaffold()
         self._data_model.initialise_data()
         self._scaffold_coordinate_field = self._scaffold_model.get_model_coordinate_field()
@@ -156,6 +158,7 @@ class MasterModel(object):
     def translate_scaffold(self, axis, value, rate):
         self._update_scaffold_coordinate_field()
         next_axis_value = value * rate
+
         if axis == 'X':
             if next_axis_value > self._current_axis_value[0]:
                 axis_value = next_axis_value - self._current_axis_value[0]
