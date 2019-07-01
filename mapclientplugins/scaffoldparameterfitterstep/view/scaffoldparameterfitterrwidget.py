@@ -10,15 +10,15 @@ from opencmiss.zincwidgets.basesceneviewerwidget import BaseSceneviewerWidget
 
 class ScaffoldParameterFitterWidget(QtGui.QWidget):
 
-    def __init__(self, master_model, parent=None):
+    def __init__(self, master_model, shareable_widget, parent=None):
         super(ScaffoldParameterFitterWidget, self).__init__(parent)
 
         self._model = master_model
         self._scaffold_package_class = self._model.get_scaffold_package_class()
         self._generator_model = self._model.get_generator_model()
-
+        self._generator_settings = self._model.get_generator_settings()
         self._ui = Ui_ScaffoldParameterFitter()
-        self._ui.setupUi(self)
+        self._ui.setupUi(self, shareable_widget)
         self._setup_handlers()
 
         self._ui.sceneviewerWidget.set_context(self._model.get_context())
@@ -93,8 +93,12 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
         self._done_callback()
 
     def _scaffold_parameter_changed(self, line_edit):
-        dependent_changes = self._generator_model.setScaffoldOption(line_edit.objectName(), line_edit.text(),
-                                                                    change_scene=False)
+        if line_edit.objectName() == 'scale':
+            self._generator_settings[line_edit] = line_edit.text()
+            dependent_changes = self._generator_model.setSettings(self._generator_settings, change_scene=False)
+        else:
+            dependent_changes = self._generator_model.setScaffoldOption(line_edit.objectName(), line_edit.text(),
+                                                                        change_scene=False)
         if dependent_changes:
             self._refresh_scaffold_options()
         else:
@@ -107,26 +111,30 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
             child = layout.takeAt(0)
             if child.widget():
                 child.widget().deleteLater()
-        option_names = self._model.get_scaffold_parameters()
-        for key, value in option_names.items():
-            label = QtGui.QLabel(self._ui.meshTypeOptions_frame)
-            label.setObjectName(key)
-            label.setText(key)
-            layout.addWidget(label)
-            if isinstance(value, self._scaffold_package_class):
-                push_button = QtGui.QPushButton()
-                push_button.setObjectName(key)
-                push_button.setText('Edit >>')
-                callback = partial(self._meshTypeOptionScaffoldPackageButtonPressed, push_button)
-                push_button.clicked.connect(callback)
-                layout.addWidget(push_button)
-            else:
-                line_edit = QtGui.QLineEdit(self._ui.meshTypeOptions_frame)
-                line_edit.setObjectName(key)
-                line_edit.setText(str(value))
-                callback = partial(self._scaffold_parameter_changed, line_edit)
-                line_edit.editingFinished.connect(callback)
-                layout.addWidget(line_edit)
+        custom_option_names = self._model.get_scaffold_parameters()
+        option_names = self._generator_model.getEditScaffoldOrderedOptionNames()
+        option_names.append('scale')
+        for key in option_names:
+            if key in custom_option_names.keys():
+                value = custom_option_names[key]
+                label = QtGui.QLabel(self._ui.meshTypeOptions_frame)
+                label.setObjectName(key)
+                label.setText(key)
+                layout.addWidget(label)
+                if isinstance(value, self._scaffold_package_class):
+                    push_button = QtGui.QPushButton()
+                    push_button.setObjectName(key)
+                    push_button.setText('Edit >>')
+                    callback = partial(self._meshTypeOptionScaffoldPackageButtonPressed, push_button)
+                    push_button.clicked.connect(callback)
+                    layout.addWidget(push_button)
+                else:
+                    line_edit = QtGui.QLineEdit(self._ui.meshTypeOptions_frame)
+                    line_edit.setObjectName(key)
+                    line_edit.setText(str(value))
+                    callback = partial(self._scaffold_parameter_changed, line_edit)
+                    line_edit.editingFinished.connect(callback)
+                    layout.addWidget(line_edit)
 
     def _yaw_clicked(self):
         value = self._ui.yaw_doubleSpinBox.value()
@@ -142,15 +150,15 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
 
     def _x_clicked(self):
         value = self._ui.positionX_doubleSpinBox.value()
-        rate  = self._ui.rateOfChange_horizontalSlider.value()
+        rate = self._ui.rateOfChange_horizontalSlider.value()
         self._model.translate_scaffold('X', value, rate)
 
     def _y_clicked(self):
         value = self._ui.positionY_doubleSpinBox.value()
-        rate  = self._ui.rateOfChange_horizontalSlider.value()
+        rate = self._ui.rateOfChange_horizontalSlider.value()
         self._model.translate_scaffold('Y', value, rate)
 
     def _z_clicked(self):
         value = self._ui.positionZ_doubleSpinBox.value()
-        rate  = self._ui.rateOfChange_horizontalSlider.value()
+        rate = self._ui.rateOfChange_horizontalSlider.value()
         self._model.translate_scaffold('Z', value, rate)
