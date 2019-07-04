@@ -10,7 +10,7 @@
 from PySide import QtCore, QtGui
 
 class Ui_ScaffoldParameterFitter(object):
-    def setupUi(self, ScaffoldParameterFitter):
+    def setupUi(self, ScaffoldParameterFitter, shareableWidget):
         ScaffoldParameterFitter.setObjectName("ScaffoldParameterFitter")
         ScaffoldParameterFitter.resize(1982, 998)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Preferred)
@@ -489,7 +489,7 @@ class Ui_ScaffoldParameterFitter(object):
         self.verticalLayout_2.addWidget(self.scrollArea)
         self.dockWidget.setWidget(self.dockWidgetContents)
         self.horizontalLayout.addWidget(self.dockWidget)
-        self.sceneviewerWidget = BaseSceneviewerWidget(ScaffoldParameterFitter)
+        self.sceneviewerWidget = NodeEditorSceneviewerWidget(ScaffoldParameterFitter, shareableWidget)
         self.sceneviewerWidget.setEnabled(True)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(1)
@@ -559,4 +559,4 @@ class Ui_ScaffoldParameterFitter(object):
         self.doneButton.setToolTip(QtGui.QApplication.translate("ScaffoldParameterFitter", "Finish this step", None, QtGui.QApplication.UnicodeUTF8))
         self.doneButton.setText(QtGui.QApplication.translate("ScaffoldParameterFitter", "Done", None, QtGui.QApplication.UnicodeUTF8))
 
-from opencmiss.zincwidgets.basesceneviewerwidget import BaseSceneviewerWidget
+from .nodeeditorsceneviewer import NodeEditorSceneviewerWidget
