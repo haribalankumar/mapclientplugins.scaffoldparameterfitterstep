@@ -30,21 +30,31 @@ def _read_model_description(region, description):
 
 class MasterModel(object):
 
-    def __init__(self,  aligner_description):
+    def __init__(self, aligner_description):
 
         self._description = aligner_description
         self._context = self._description.get_context()
         self._material_module = self._context.getMaterialmodule()
-        self._region = self._description.get_scaffold_region()
+        self._parent_region = self._description.get_scaffold_region()
+        self._region_name = "fitting_region"
+        self._region = self._parent_region.createChild(self._region_name)
+
         self._parameters = self._description.get_parameters()
         self._data_description = self._description.get_data_region_description()
         self._generator_settings = self._description.get_generator_settings()
+        self._generator_model = self._description.get_generator_model()
+        self._scaffold_package = self._description.get_scaffold_package()
+        self._scaffold_package_class = self._description.get_scaffold_package_class()
+
         self._scaffold_coordinate_field = None
         self._data_coordinate_field = None
 
-        self._scaffold_model = ScaffoldModel(self._context, self._region, None,
-                                             self._material_module, self._parameters)
-        self._data_model = DataModel(self._context, self._region, self._data_description, self._material_module)
+        self._scaffold_model = ScaffoldModel(self._context, self._region, self._generator_model,
+                                             self._parameters, self._material_module,
+                                             self._scaffold_package, self._scaffold_package_class)
+
+        self._data_model = DataModel(self._context, self._region, self._data_description,
+                                     self._material_module)
 
         self._initialise_scaffold_and_data()
         self._scene = self._initialise_scene()
@@ -58,6 +68,15 @@ class MasterModel(object):
         self._settings_change_callback = None
         self._current_angle_value = [0., 0., 0.]
         self._current_axis_value = [0., 0., 0.]
+
+    def update_scaffold(self):
+        self._scaffold_model.generate_mesh_for_fitting()
+
+    def get_edit_scaffold(self, key):
+        return self._scaffold_model.get_edit_scaffold_option(key)
+
+    def generate_mesh(self):
+        self._scaffold_model.generate_mesh_for_fitting()
 
     def create_graphics(self, is_temporal):
         self._scaffold_model.create_scaffold_graphics()
@@ -75,11 +94,14 @@ class MasterModel(object):
     def get_species_type(self):
         return self._description.get_species()
 
+    def get_scaffold_package(self):
+        return self._scaffold_model.get_scaffold_package()
+
     def get_scaffold_package_class(self):
-        return self._description.get_scaffold_package()
+        return self._scaffold_package_class
 
     def get_generator_model(self):
-        return self._description.get_generator_model()
+        return self._generator_model
 
     def get_generator_settings(self):
         return self._generator_settings
@@ -107,7 +129,7 @@ class MasterModel(object):
 
         self._scaffold_model.initialise_scaffold()
         self._data_model.initialise_data()
-        self._scaffold_coordinate_field = self._scaffold_model.get_model_coordinate_field()
+        self._scaffold_coordinate_field = self._scaffold_model.get_coordinate_field()
         self._data_coordinate_field = self._data_model.get_data_coordinate_field()
 
     def _initialise_scene(self):
@@ -192,3 +214,6 @@ class MasterModel(object):
 
     def _apply_callback(self):
         self._settings_change_callback()
+
+    def save_temp(self):
+        self._region.writeFile('D:\\sparc\\pig_heart_temp.exf')
