@@ -1,86 +1,139 @@
 from opencmiss.zinc.field import Field
 from opencmiss.zinc.graphics import Graphics
+from opencmiss.zinc.glyph import Glyph
 from opencmiss.zinc.material import Material
+from opencmiss.zinc.node import Node
 from opencmiss.zinc.streamregion import StreaminformationRegion
 from opencmiss.utils.zinc import create_finite_element_field
+
+from scaffoldmaker.scaffolds import Scaffolds
+from scaffoldmaker.scaffoldpackage import ScaffoldPackage
 
 from ..utils import maths
 
 
-def _read_aligner_description(scaffold_region, scaffold_description):
-    scaffold_stream_information = scaffold_region.createStreaminformationRegion()
-    memory_resource = scaffold_stream_information.createStreamresourceMemoryBuffer(scaffold_description['elements3D'])
-    scaffold_stream_information.setResourceDomainTypes(memory_resource, Field.DOMAIN_TYPE_MESH3D)
-    memory_resource = scaffold_stream_information.createStreamresourceMemoryBuffer(scaffold_description['elements2D'])
-    scaffold_stream_information.setResourceDomainTypes(memory_resource, Field.DOMAIN_TYPE_MESH2D)
-    memory_resource = scaffold_stream_information.createStreamresourceMemoryBuffer(scaffold_description['elements1D'])
-    scaffold_stream_information.setResourceDomainTypes(memory_resource, Field.DOMAIN_TYPE_MESH1D)
-    memory_resource = scaffold_stream_information.createStreamresourceMemoryBuffer(scaffold_description['nodes'])
-    scaffold_stream_information.setResourceDomainTypes(memory_resource, Field.DOMAIN_TYPE_NODES)
-    return scaffold_stream_information
-
-
 class ScaffoldModel(object):
 
-    def __init__(self, context, region, coordinates, material_module, parameters):
+    def __init__(self, context, region, generator_model, parameters, material_module, scaffold_package,
+                 scaffold_package_class):
 
         self._context = context
-        self._parent_region = region
         self._region = region
-        self._coordinate_field = None
+
+        self._generator_model = generator_model
         self._material_module = material_module
         self._parameters = parameters.keys()
+        self._coordinate_field = None
+        _scaffold_package = scaffold_package
+        _scaffold_package_class = scaffold_package_class
 
-        # self._sir = _read_aligner_description(self._region, scaffold_description)
+        scaffolds = Scaffolds()
+        self._all_scaffold_types = scaffolds.getScaffoldTypes()
+
+        for x in self._all_scaffold_types:
+            if x == _scaffold_package[-1].getScaffoldType():
+                scaffold_type = x
+        scaffold_package = ScaffoldPackage(scaffold_type)
+        self._parameterSetName = scaffold_type.getParameterSetNames()[0]
+        self._scaffold_package = scaffold_package
 
         self._scaffold = None
         self._scaffold_options = None
         self._temp_region = None
+        self._annotation_groups = None
         self._scene = None
         self._scaffold_is_time_aware = None
         self._scaffold_fit_parameters = None
         self._initialise_surface_material()
 
-    # def initialise_region(self):
-    #     self.clear()
-        # if self._region is not None:
-        #     self._region = None
-        # if self._coordinate_field is not None:
-            # self._coordinate_field = None
-        # self._region = self._parent_region.createChild('scaffold_region')
-        # self._coordinate_field = create_finite_element_field(self._region)
-
-    # def clear(self):
-    #     if self._region:
-    #         self._parent_region.removeChild(self._region)
-
     def get_region(self):
         return self._region
 
     def _create_surface_graphics(self):
+        self._scene.beginChange()
         surface = self._scene.createGraphicsSurfaces()
         surface.setCoordinateField(self._coordinate_field)
         surface.setRenderPolygonMode(Graphics.RENDER_POLYGON_MODE_SHADED)
         surface_material = self._material_module.findMaterialByName('trans_blue')
         surface.setMaterial(surface_material)
         surface.setName('display_surfaces')
+        self._scene.endChange()
         return surface
 
+    def _create_node_graphics(self):
+        self._scene.beginChange()
+        self._node_derivative_labels = ['D1', 'D2', 'D3', 'D12', 'D13', 'D23', 'D123']
+        fm = self._region.getFieldmodule()
+        fm.beginChange()
+        cmiss_number = fm.findFieldByName('cmiss_number')
+
+        node_points = self._scene.createGraphicsPoints()
+        node_points.setFieldDomainType(Field.DOMAIN_TYPE_NODES)
+        node_points.setCoordinateField(self._coordinate_field)
+        point_attr = node_points.getGraphicspointattributes()
+        point_attr.setBaseSize([500, 500, 500])
+        point_attr.setGlyphShapeType(Glyph.SHAPE_TYPE_SPHERE)
+        node_points.setMaterial(self._material_module.findMaterialByName('white'))
+        node_points.setName('display_node_points')
+
+        node_numbers = self._scene.createGraphicsPoints()
+        node_numbers.setFieldDomainType(Field.DOMAIN_TYPE_NODES)
+        node_numbers.setCoordinateField(self._coordinate_field)
+        point_attr = node_numbers.getGraphicspointattributes()
+        point_attr.setLabelField(cmiss_number)
+        point_attr.setGlyphShapeType(Glyph.SHAPE_TYPE_NONE)
+        node_numbers.setMaterial(self._material_module.findMaterialByName('green'))
+        node_numbers.setName('display_node_numbers')
+
+        node_derivative_fields = [
+            fm.createFieldNodeValue(self._coordinate_field, Node.VALUE_LABEL_D_DS1, 1),
+            fm.createFieldNodeValue(self._coordinate_field, Node.VALUE_LABEL_D_DS2, 1),
+            fm.createFieldNodeValue(self._coordinate_field, Node.VALUE_LABEL_D_DS3, 1),
+            fm.createFieldNodeValue(self._coordinate_field, Node.VALUE_LABEL_D2_DS1DS2, 1),
+            fm.createFieldNodeValue(self._coordinate_field, Node.VALUE_LABEL_D2_DS1DS3, 1),
+            fm.createFieldNodeValue(self._coordinate_field, Node.VALUE_LABEL_D2_DS2DS3, 1),
+            fm.createFieldNodeValue(self._coordinate_field, Node.VALUE_LABEL_D3_DS1DS2DS3, 1)
+        ]
+
+        node_derivative_material_names = ['gold', 'silver', 'green', 'cyan', 'magenta', 'yellow', 'blue']
+        derivative_scales = [1.0, 1.0, 1.0, 0.5, 0.5, 0.5, 0.25]
+        for i in range(len(self._node_derivative_labels)):
+            node_derivative_label = self._node_derivative_labels[i]
+            node_derivatives = self._scene.createGraphicsPoints()
+            node_derivatives.setFieldDomainType(Field.DOMAIN_TYPE_NODES)
+            node_derivatives.setCoordinateField(self._coordinate_field)
+            point_attr = node_derivatives.getGraphicspointattributes()
+            point_attr.setGlyphShapeType(Glyph.SHAPE_TYPE_ARROW_SOLID)
+            point_attr.setOrientationScaleField(node_derivative_fields[i])
+            point_attr.setBaseSize([0.0, 50, 50])
+            point_attr.setScaleFactors([derivative_scales[i], 0.0, 0.0])
+            material = self._material_module.findMaterialByName(node_derivative_material_names[i])
+            node_derivatives.setMaterial(material)
+            node_derivatives.setSelectedMaterial(material)
+            node_derivatives.setName('display_node_derivatives' + node_derivative_label)
+        fm.endChange()
+        self._scene.endChange()
+        return
+
     def _create_line_graphics(self):
+        self._scene.beginChange()
         lines = self._scene.createGraphicsLines()
         fieldmodule = self._context.getMaterialmodule()
         lines.setCoordinateField(self._coordinate_field)
         lines.setName('display_lines')
         black = fieldmodule.findMaterialByName('white')
         lines.setMaterial(black)
+        self._scene.endChange()
         return lines
 
     def create_scaffold_graphics(self):
+        # self._create_node_graphics()
         self._create_line_graphics()
         self._create_surface_graphics()
 
     def _get_mesh(self):
-        fm = self._region.getFieldmodule()
+        parent_region = self._region.getParent()
+        fm = parent_region.getFieldmodule()
         for dimension in range(3, 0, -1):
             mesh = fm.findMeshByDimension(dimension)
             if mesh.getSize() > 0:
@@ -92,7 +145,7 @@ class ScaffoldModel(object):
         element = mesh.createElementiterator().next()
         if not element.isValid():
             raise ValueError('Model contains no elements')
-        fm = self._region.getFieldmodule()
+        fm = self._region.getParent().getFieldmodule()
         cache = fm.createFieldcache()
         cache.setElement(element)
         field_iter = fm.createFielditerator()
@@ -132,6 +185,37 @@ class ScaffoldModel(object):
 
     def initialise_scaffold(self):
         self._coordinate_field = self.get_model_coordinate_field()
+
+    def _update(self):
+        self._scene.beginChange()
+        for name in ['display_lines', 'display_surfaces']:
+            graphics = self._scene.findGraphicsByName(name)
+            graphics.setCoordinateField(self._coordinate_field)
+        self._scene.endChange()
+
+    def get_scaffold_package(self):
+        return self._scaffold_package
+
+    def _get_scaffold_package_settings(self):
+        return self._scaffold_package.getScaffoldSettings()
+
+    def _get_scaffold_package_type(self):
+        return self._scaffold_package.getScaffoldType()
+
+    def get_edit_scaffold_settings(self):
+        return self._scaffold_package.getScaffoldSettings()
+
+    def get_edit_scaffold_option(self, key):
+        # print(self.get_edit_scaffold_settings()[key])
+        return self.get_edit_scaffold_settings()[key]
+
+    def generate_mesh_for_fitting(self):
+        scaffold_package = self._scaffold_package
+        if self._region:
+            self._region.getParent().removeChild(self._region)
+        self._region = self._region.getParent().createChild('fitting_region')
+        scaffold_package.getScaffoldType().generateMesh(self._region, self.get_edit_scaffold_settings())
+        self._update()
 
     def _initialise_surface_material(self):
         self._material_module = self._context.getMaterialmodule()
@@ -201,14 +285,6 @@ class ScaffoldModel(object):
         self._temp_region = self._region.createRegion()
         self._scaffold.generateMesh(self._temp_region, temp_options)
 
-    # def _generate_mesh(self, options):
-    #     self.initialise_region()
-    #     field_module = self._region.getFieldmodule()
-    #     field_module.beginChange()
-    #     self._scaffold.generateMesh(self._region, options)
-    #     field_module.defineAllFaces()
-    #     field_module.endChange()
-
     def set_scaffold_options(self, options):
         self._scaffold_options = options
         parameters = []
@@ -217,8 +293,8 @@ class ScaffoldModel(object):
         self._scaffold_fit_parameters = parameters
 
     def initialise_scene(self):
-        if self._region.getScene():
-            self._region.getScene().removeAllGraphics()
+        if self._region.getParent().getScene():
+            self._region.getParent().getScene().removeAllGraphics()
         self._scene = self._region.getScene()
 
     def set_scaffold(self, scaffold):
@@ -258,3 +334,16 @@ def _read_node_descriptions(region, buffer, time):
     stream_information.setResourceDomainTypes(memory_resource, Field.DOMAIN_TYPE_NODES)
     stream_information.setResourceAttributeReal(memory_resource, StreaminformationRegion.ATTRIBUTE_TIME, time)
     region.read(stream_information)
+
+
+def _read_aligner_description(scaffold_region, scaffold_description):
+    scaffold_stream_information = scaffold_region.createStreaminformationRegion()
+    memory_resource = scaffold_stream_information.createStreamresourceMemoryBuffer(scaffold_description['elements3D'])
+    scaffold_stream_information.setResourceDomainTypes(memory_resource, Field.DOMAIN_TYPE_MESH3D)
+    memory_resource = scaffold_stream_information.createStreamresourceMemoryBuffer(scaffold_description['elements2D'])
+    scaffold_stream_information.setResourceDomainTypes(memory_resource, Field.DOMAIN_TYPE_MESH2D)
+    memory_resource = scaffold_stream_information.createStreamresourceMemoryBuffer(scaffold_description['elements1D'])
+    scaffold_stream_information.setResourceDomainTypes(memory_resource, Field.DOMAIN_TYPE_MESH1D)
+    memory_resource = scaffold_stream_information.createStreamresourceMemoryBuffer(scaffold_description['nodes'])
+    scaffold_stream_information.setResourceDomainTypes(memory_resource, Field.DOMAIN_TYPE_NODES)
+    return scaffold_stream_information
