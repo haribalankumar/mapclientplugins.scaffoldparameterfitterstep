@@ -26,8 +26,7 @@ class DataModel(object):
     def __init__(self, context, region, data_description, material_module):
 
         self._context = context
-        self._parent_region = region
-        self._region = self._parent_region.createChild('data_region')
+        self._region = region
         self._sir = _read_aligner_description(self._region, data_description)
 
         self._material_module = material_module
@@ -55,7 +54,8 @@ class DataModel(object):
         self._create_data_point_graphics(is_temporal)
 
     def get_data_coordinate_field(self):
-        fm = self._region.getFieldmodule()
+        parent_region = self._region.getParent()
+        fm = parent_region.getFieldmodule()
         data_point_set = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
         data_point = data_point_set.createNodeiterator().next()
         if not data_point.isValid():
@@ -78,7 +78,7 @@ class DataModel(object):
         return self._region
 
     def _get_data_range(self):
-        fm = self._region.getFieldmodule()
+        fm = self._region.getParent().getFieldmodule()
         data_points = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
         minimums, maximums = self._get_nodeset_minimum_maximum(data_points, self._coordinate_field)
         return minimums, maximums
@@ -127,4 +127,3 @@ class DataModel(object):
         if self._coordinate_field is not None:
             self._coordinate_field = None
         self._coordinate_field = field
-
