@@ -5,7 +5,6 @@ from PySide import QtGui
 from .ui_scaffoldparameterfitterrwidget import Ui_ScaffoldParameterFitter
 
 from opencmiss.zinchandlers.scenemanipulation import SceneManipulation
-from opencmiss.zincwidgets.basesceneviewerwidget import BaseSceneviewerWidget
 
 
 class ScaffoldParameterFitterWidget(QtGui.QWidget):
@@ -14,6 +13,8 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
         super(ScaffoldParameterFitterWidget, self).__init__(parent)
 
         self._model = master_model
+        # self._scaffold_package = self._model.get_scaffold_package()
+        self._scaffold_package = self._model.get_scaffold_package()
         self._scaffold_package_class = self._model.get_scaffold_package_class()
         self._generator_model = self._model.get_generator_model()
         self._generator_settings = self._model.get_generator_settings()
@@ -21,7 +22,8 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
         self._ui.setupUi(self, shareable_widget)
         self._setup_handlers()
 
-        self._ui.sceneviewerWidget.set_context(self._model.get_context())
+        # self._ui.sceneviewerWidget.set_context(self._model.get_context())
+        self._ui.sceneviewerWidget.setContext(self._model.get_context())
 
         self._done_callback = None
         self._scene_change_callback = None
@@ -31,15 +33,26 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
         self._make_connections()
 
     def _make_connections(self):
-        self._ui.sceneviewerWidget.graphics_initialized.connect(self._graphics_initialized)
+        # self._ui.sceneviewerWidget.graphics_initialized.connect(self._graphics_initialized)
+        self._ui.sceneviewerWidget.graphicsInitialized.connect(self._graphics_initialized)
         self._ui.meshType_label.setText(self._model.get_scaffold_type())
         self._ui.parameterSet_label.setText(self._model.get_species_type())
+
         self._ui.yaw_doubleSpinBox.valueChanged.connect(self._yaw_clicked)
         self._ui.pitch_doubleSpinBox.valueChanged.connect(self._pitch_clicked)
         self._ui.roll_doubleSpinBox.valueChanged.connect(self._roll_clicked)
         self._ui.positionX_doubleSpinBox.valueChanged.connect(self._x_clicked)
         self._ui.positionY_doubleSpinBox.valueChanged.connect(self._y_clicked)
         self._ui.positionZ_doubleSpinBox.valueChanged.connect(self._z_clicked)
+
+        self._ui.fit_pushButton.setEnabled(True)
+        self._ui.fit_pushButton.clicked.connect(self._save_temp)
+
+    def _save_temp(self):
+        self._model.save_temp()
+
+    def get_scaffold_package(self):
+        return self._model.get_scaffold_package()
 
     def create_graphics(self, is_temporal):
         if self._is_temporal is None:
@@ -55,11 +68,13 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
             widget.setText(new_text)
 
     def _graphics_initialized(self):
-        scene_viewer = self._ui.sceneviewerWidget.get_zinc_sceneviewer()
+        # scene_viewer = self._ui.sceneviewerWidget.get_zinc_sceneviewer()
+        scene_viewer = self._ui.sceneviewerWidget.getSceneviewer()
         self._refresh_scaffold_options()
         if scene_viewer is not None:
             scene = self._model.get_scene()
-            self._ui.sceneviewerWidget.set_scene(scene)
+            # self._ui.sceneviewerWidget.set_scene(scene)
+            self._ui.sceneviewerWidget.setScene(scene)
             if len(self._settings['view-parameters']) == 0:
                 self._view_all()
             else:
@@ -67,7 +82,8 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
                 look_at = self._settings['view-parameters']['look_at']
                 up = self._settings['view-parameters']['up']
                 angle = self._settings['view-parameters']['angle']
-                self._ui.sceneviewerWidget.set_view_parameters(eye, look_at, up, angle)
+                # self._ui.sceneviewerWidget.set_view_parameters(eye, look_at, up, angle)
+                self._ui.sceneviewerWidget.setViewParameters(eye, look_at, up, angle)
                 self._view_all()
 
     def register_done_execution(self, done_callback):
@@ -78,7 +94,7 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
 
     def _setup_handlers(self):
         basic_handler = SceneManipulation()
-        self._ui.sceneviewerWidget.register_handler(basic_handler)
+        # self._ui.sceneviewerWidget.register_handler(basic_handler)
 
     def _setting_display(self):
         self._display_real(self._ui.yaw_doubleSpinBox, self._model.get_yaw_value())
@@ -86,8 +102,9 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
         self._display_real(self._ui.roll_doubleSpinBox, self._model.get_roll_value())
 
     def _view_all(self):
-        if self._ui.sceneviewerWidget.get_zinc_sceneviewer() is not None:
-            self._ui.sceneviewerWidget.view_all()
+        if self._ui.sceneviewerWidget.getSceneviewer() is not None:
+            # self._ui.sceneviewerWidget.view_all()
+            self._ui.sceneviewerWidget.viewAll()
 
     def _done_clicked(self):
         self._done_callback()
@@ -95,15 +112,19 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
     def _scaffold_parameter_changed(self, line_edit):
         if line_edit.objectName() == 'scale':
             self._generator_settings[line_edit] = line_edit.text()
-            dependent_changes = self._generator_model.setSettings(self._generator_settings, change_scene=False)
+            # dependent_changes = self._generator_model.setSettings(self._generator_settings, change_scene=False)
         else:
-            dependent_changes = self._generator_model.setScaffoldOption(line_edit.objectName(), line_edit.text(),
-                                                                        change_scene=False)
-        if dependent_changes:
-            self._refresh_scaffold_options()
-        else:
-            final_value = self._generator_model.getEditScaffoldOption(line_edit.objectName())
+            # dependent_changes = self._generator_model.setScaffoldOption(line_edit.objectName(),
+            #                                                             line_edit.text(),
+            #                                                             change_scene=False)
+            # new_region = self._generator_model.generate_mesh_for_fitting(self._scaffold_package_class)
+            # self._model.set_option(line_edit.objectName(), line_edit.text())
+            self._model.generate_mesh()
+            final_value = self._model.get_edit_scaffold(line_edit.objectName())
             line_edit.setText(str(final_value))
+        # if dependent_changes:
+        #     self._refresh_scaffold_options()
+        # else:
 
     def _refresh_scaffold_options(self):
         layout = self._ui.meshTypeOptions_frame.layout()
@@ -112,7 +133,7 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
             if child.widget():
                 child.widget().deleteLater()
         custom_option_names = self._model.get_scaffold_parameters()
-        option_names = self._generator_model.getEditScaffoldOrderedOptionNames()
+        option_names = self._scaffold_package.getScaffoldType().getOrderedOptionNames()
         option_names.append('scale')
         for key in option_names:
             if key in custom_option_names.keys():
