@@ -6,28 +6,32 @@ from opencmiss.zinc.streamregion import StreaminformationRegion
 from ..utils import maths
 
 
-def _read_aligner_description(data_region, data_description):
+def _read_aligner_description(data_region, data_description, is_temporal):
     data_stream_information = data_region.createStreaminformationRegion()
     for key in data_description:
         if key != 'elements3D' and key != 'elements2D' and key != 'elements1D' and key != 'nodes':
-            if isinstance(key, float):
-                time = key
+            if is_temporal:
+                if isinstance(key, float):
+                    time = key
+                else:
+                    time = float(key)
+                memory_resource = data_stream_information.createStreamresourceMemoryBuffer(data_description[key])
+                data_stream_information.setResourceDomainTypes(memory_resource, Field.DOMAIN_TYPE_DATAPOINTS)
+                data_stream_information.setResourceAttributeReal(memory_resource, StreaminformationRegion.ATTRIBUTE_TIME,
+                                                                 time)
             else:
-                time = float(key)
-            memory_resource = data_stream_information.createStreamresourceMemoryBuffer(data_description[key])
-            data_stream_information.setResourceDomainTypes(memory_resource, Field.DOMAIN_TYPE_DATAPOINTS)
-            data_stream_information.setResourceAttributeReal(memory_resource, StreaminformationRegion.ATTRIBUTE_TIME,
-                                                             time)
+                memory_resource = data_stream_information.createStreamresourceMemoryBuffer(data_description[key])
+                data_stream_information.setResourceDomainTypes(memory_resource, Field.DOMAIN_TYPE_DATAPOINTS)
     return data_stream_information
 
 
 class DataModel(object):
 
-    def __init__(self, context, region, data_description, material_module):
+    def __init__(self, context, region, data_description, material_module, is_temporal):
 
         self._context = context
         self._region = region
-        self._sir = _read_aligner_description(self._region, data_description)
+        self._sir = _read_aligner_description(self._region, data_description, is_temporal)
 
         self._material_module = material_module
         self._scene = None
@@ -54,7 +58,7 @@ class DataModel(object):
         self._create_data_point_graphics(is_temporal)
 
     def get_data_coordinate_field(self):
-        parent_region = self._region.getParent()
+        parent_region = self._region
         fm = parent_region.getFieldmodule()
         data_point_set = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
         data_point = data_point_set.createNodeiterator().next()
@@ -78,7 +82,7 @@ class DataModel(object):
         return self._region
 
     def _get_data_range(self):
-        fm = self._region.getParent().getFieldmodule()
+        fm = self._region.getFieldmodule()
         data_points = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
         minimums, maximums = self._get_nodeset_minimum_maximum(data_points, self._coordinate_field)
         return minimums, maximums
