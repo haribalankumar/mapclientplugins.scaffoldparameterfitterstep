@@ -132,7 +132,7 @@ class ScaffoldModel(object):
         self._create_surface_graphics()
 
     def _get_mesh(self):
-        parent_region = self._region.getParent()
+        parent_region = self._region
         fm = parent_region.getFieldmodule()
         for dimension in range(3, 0, -1):
             mesh = fm.findMeshByDimension(dimension)
@@ -145,7 +145,7 @@ class ScaffoldModel(object):
         element = mesh.createElementiterator().next()
         if not element.isValid():
             raise ValueError('Model contains no elements')
-        fm = self._region.getParent().getFieldmodule()
+        fm = self._region.getFieldmodule()
         cache = fm.createFieldcache()
         cache.setElement(element)
         field_iter = fm.createFielditerator()
@@ -211,9 +211,9 @@ class ScaffoldModel(object):
 
     def generate_mesh_for_fitting(self):
         scaffold_package = self._scaffold_package
-        if self._region:
-            self._region.getParent().removeChild(self._region)
-        self._region = self._region.getParent().createChild('fitting_region')
+        # if self._region:
+        #     self._region.removeChild(self._region)
+        # self._region = self._region.createChild('fitting_region')
         scaffold_package.getScaffoldType().generateMesh(self._region, self.get_edit_scaffold_settings())
         self._update()
 
@@ -293,8 +293,6 @@ class ScaffoldModel(object):
         self._scaffold_fit_parameters = parameters
 
     def initialise_scene(self):
-        if self._region.getParent().getScene():
-            self._region.getParent().getScene().removeAllGraphics()
         self._scene = self._region.getScene()
 
     def set_scaffold(self, scaffold):
