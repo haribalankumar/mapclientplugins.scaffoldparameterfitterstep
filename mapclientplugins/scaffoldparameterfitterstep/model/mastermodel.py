@@ -30,14 +30,14 @@ def _read_model_description(region, description):
 
 class MasterModel(object):
 
-    def __init__(self, aligner_description):
+    def __init__(self, aligner_description, is_temporal):
 
         self._description = aligner_description
         self._context = self._description.get_context()
         self._material_module = self._context.getMaterialmodule()
-        self._parent_region = self._description.get_scaffold_region()
-        self._region_name = "fitting_region"
-        self._region = self._parent_region.createChild(self._region_name)
+        self._region = self._description.get_scaffold_region()
+        # self._region_name = "fitting_region"
+        # self._region = self._parent_region.createChild(self._region_name)
 
         self._parameters = self._description.get_parameters()
         self._data_description = self._description.get_data_region_description()
@@ -54,7 +54,7 @@ class MasterModel(object):
                                              self._scaffold_package, self._scaffold_package_class)
 
         self._data_model = DataModel(self._context, self._region, self._data_description,
-                                     self._material_module)
+                                     self._material_module, is_temporal)
 
         self._initialise_scaffold_and_data()
         self._scene = self._initialise_scene()
