@@ -36,12 +36,7 @@ class MasterModel(object):
         self._description = aligner_description
         self._context = self._description.get_context()
         self._material_module = self._context.getMaterialmodule()
-        # self._region = self._description.get_scaffold_region()
-        self._region = self._context.createRegion()
-        self._region.setName('custom_scaffold')
-        result = self._region.readFile('D:\\sparc\\tmp\\pig_scaffold.exf')
-        if result != ZINC_OK:
-            print('Scaffold invalid...')
+        self._region = self._description.get_scaffold_region()
         self._parameters = self._description.get_parameters()
         self._data_description = self._description.get_data_region_description()
         self._generator_settings = self._description.get_generator_settings()
