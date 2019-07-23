@@ -9,11 +9,10 @@ from opencmiss.zinchandlers.scenemanipulation import SceneManipulation
 
 class ScaffoldParameterFitterWidget(QtGui.QWidget):
 
-    def __init__(self, master_model, shareable_widget, parent=None):
+    def __init__(self, master_model, shareable_widget, is_temporal, max_time, parent=None):
         super(ScaffoldParameterFitterWidget, self).__init__(parent)
 
         self._model = master_model
-        # self._scaffold_package = self._model.get_scaffold_package()
         self._scaffold_package = self._model.get_scaffold_package()
         self._scaffold_package_class = self._model.get_scaffold_package_class()
         self._generator_model = self._model.get_generator_model()
@@ -21,22 +20,27 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
         self._ui = Ui_ScaffoldParameterFitter()
         self._ui.setupUi(self, shareable_widget)
         self._setup_handlers()
+        self._is_temporal = is_temporal
 
-        # self._ui.sceneviewerWidget.set_context(self._model.get_context())
+        if self._is_temporal:
+            self._ui.timePoint_spinBox.setEnabled(True)
+            self._ui.timePoint_spinBox.setMaximum(max_time)
+            self._model.set_max_time(max_time)
+
         self._ui.sceneviewerWidget.setContext(self._model.get_context())
 
         self._done_callback = None
         self._scene_change_callback = None
-        self._is_temporal = None
         self._settings = {'view-parameters': {}}
         self._model.set_settings_change_callback(self._setting_display)
         self._make_connections()
 
     def _make_connections(self):
-        # self._ui.sceneviewerWidget.graphics_initialized.connect(self._graphics_initialized)
         self._ui.sceneviewerWidget.graphicsInitialized.connect(self._graphics_initialized)
         self._ui.meshType_label.setText(self._model.get_scaffold_type())
         self._ui.parameterSet_label.setText(self._model.get_species_type())
+
+        self._ui.timePoint_spinBox.valueChanged.connect(self._time_changed)
 
         self._ui.yaw_doubleSpinBox.valueChanged.connect(self._yaw_clicked)
         self._ui.pitch_doubleSpinBox.valueChanged.connect(self._pitch_clicked)
@@ -46,7 +50,12 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
         self._ui.positionZ_doubleSpinBox.valueChanged.connect(self._z_clicked)
 
         self._ui.fit_pushButton.setEnabled(True)
-        self._ui.fit_pushButton.clicked.connect(self._save_temp)
+        if self._is_temporal:
+            self._ui.fit_pushButton.clicked.connect(self._scale)
+        else:
+            self._ui.fit_pushButton.clicked.connect(self._fit)
+
+        self._ui.saveSettingsButton.clicked.connect(self._save_temp)
 
     def _save_temp(self):
         self._model.save_temp()
@@ -58,6 +67,8 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
         if self._is_temporal is None:
             self._is_temporal = is_temporal
         self._model.create_graphics(is_temporal)
+        self._model.set_time_value(0.0)
+        self._model.initialise_time_graphics(0.0)
 
     @staticmethod
     def _display_real(widget, value):
@@ -157,6 +168,10 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
                     line_edit.editingFinished.connect(callback)
                     layout.addWidget(line_edit)
 
+    def _time_changed(self):
+        time_value = self._ui.timePoint_spinBox.value()
+        self._model.set_time_value(time_value)
+
     def _yaw_clicked(self):
         value = self._ui.yaw_doubleSpinBox.value()
         self._model.rotate_scaffold('yaw', value)
@@ -183,3 +198,12 @@ class ScaffoldParameterFitterWidget(QtGui.QWidget):
         value = self._ui.positionZ_doubleSpinBox.value()
         rate = self._ui.rateOfChange_horizontalSlider.value()
         self._model.translate_scaffold('Z', value, rate)
+
+    def _scale(self):
+        if self._ui.fitAllTime_radioButton.isChecked():
+            self._model.scale_scaffold(all_time_points=True)
+        else:
+            self._model.scale_scaffold()
+
+    def _fit(self):
+        pass

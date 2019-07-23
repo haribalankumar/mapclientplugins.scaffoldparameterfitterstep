@@ -135,7 +135,7 @@ def swap_axes(source_field, axes=None):
     return success
 
 
-def transform_coordinates(field, rotation):
+def transform_coordinates(field, rotation, time=0):
     number_of_components = field.getNumberOfComponents()
     if (number_of_components != 2) and (number_of_components != 3):
         print('zincutils.transformCoordinates: field has invalid number of components')
@@ -154,6 +154,7 @@ def transform_coordinates(field, rotation):
     fm = field.getFieldmodule()
     fm.beginChange()
     cache = fm.createFieldcache()
+    cache.setTime(time)
     nodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
     node_template = nodes.createNodetemplate()
     node_iter = nodes.createNodeiterator()
@@ -181,7 +182,7 @@ def transform_coordinates(field, rotation):
     return success
 
 
-def scale_coordinates(field, scale):
+def scale_coordinates(field, scale, time=0):
     number_of_components = field.getNumberOfComponents()
     if (number_of_components != 2) and (number_of_components != 3):
         print('zincutils.scale_coordinates: field has invalid number of components')
@@ -200,6 +201,7 @@ def scale_coordinates(field, scale):
     fm = field.getFieldmodule()
     fm.beginChange()
     cache = fm.createFieldcache()
+    cache.setTime(time)
     nodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
     node_template = nodes.createNodetemplate()
     node_iter = nodes.createNodeiterator()
@@ -227,7 +229,7 @@ def scale_coordinates(field, scale):
     return success
 
 
-def offset_scaffold(field, offset):
+def offset_scaffold(field, offset, time=0):
     number_of_components = field.getNumberOfComponents()
     if (number_of_components != 2) and (number_of_components != 3):
         print('zincutils.offset_scaffold: field has invalid number of components')
@@ -246,6 +248,7 @@ def offset_scaffold(field, offset):
     fm = field.getFieldmodule()
     fm.beginChange()
     cache = fm.createFieldcache()
+    cache.setTime(time)
     nodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
     node_template = nodes.createNodetemplate()
     node_iter = nodes.createNodeiterator()

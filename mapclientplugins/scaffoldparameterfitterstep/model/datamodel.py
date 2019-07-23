@@ -35,6 +35,11 @@ class DataModel(object):
 
         self._material_module = material_module
         self._scene = None
+        self._timekeeper = None
+        self._current_time = None
+        self._maximum_time = None
+        self._time_sequence = None
+
         self._coordinate_field = None
 
     def _create_data_point_graphics(self, is_temporal):
@@ -81,14 +86,18 @@ class DataModel(object):
     def get_region(self):
         return self._region
 
-    def _get_data_range(self):
+    def set_time(self, time):
+        self._current_time = time
+        self._timekeeper.setTime(time)
+
+    def _get_data_range(self, time=0):
         fm = self._region.getFieldmodule()
         data_points = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_DATAPOINTS)
-        minimums, maximums = self._get_nodeset_minimum_maximum(data_points, self._coordinate_field)
+        minimums, maximums = self._get_nodeset_minimum_maximum(data_points, self._coordinate_field, time=time)
         return minimums, maximums
 
-    def get_range(self):
-        return self._get_data_range()
+    def get_range(self, time=0):
+        return self._get_data_range(time=time)
 
     def _get_auto_point_size(self):
         minimums, maximums = self._get_data_range()
@@ -96,12 +105,13 @@ class DataModel(object):
         return 0.005 * data_size
 
     @staticmethod
-    def _get_nodeset_minimum_maximum(nodeset, field):
+    def _get_nodeset_minimum_maximum(nodeset, field, time=0):
         fm = field.getFieldmodule()
         count = field.getNumberOfComponents()
         minimums_field = fm.createFieldNodesetMinimum(field, nodeset)
         maximums_field = fm.createFieldNodesetMaximum(field, nodeset)
         cache = fm.createFieldcache()
+        cache.setTime(time)
         result, minimums = minimums_field.evaluateReal(cache, count)
         if result != ZINC_OK:
             minimums = None
@@ -112,8 +122,8 @@ class DataModel(object):
         del maximums_field
         return minimums, maximums
 
-    def get_scale(self):
-        minimums, maximums = self._get_data_range()
+    def get_scale(self, time):
+        minimums, maximums = self._get_data_range(time)
         return maths.sub(minimums, maximums)
 
     def initialise_data(self):
@@ -126,6 +136,7 @@ class DataModel(object):
 
     def initialise_scene(self):
         self._scene = self._region.getScene()
+        self._timekeeper = self._scene.getTimekeepermodule().getDefaultTimekeeper()
 
     def set_coordinate_field(self, field):
         if self._coordinate_field is not None:

@@ -19,7 +19,9 @@ class ScaffoldModel(object):
 
         self._context = context
         self._region = region
-
+        # self._region = self._context.createRegion()
+        # self._region.setName('custom_scaffold')
+        # self._region.readFile('D:\\sparc\\tmp\\pig_scaffold.exf')
         self._generator_model = generator_model
         self._material_module = material_module
         self._parameters = parameters.keys()
@@ -30,9 +32,13 @@ class ScaffoldModel(object):
         scaffolds = Scaffolds()
         self._all_scaffold_types = scaffolds.getScaffoldTypes()
 
-        for x in self._all_scaffold_types:
-            if x == _scaffold_package[-1].getScaffoldType():
-                scaffold_type = x
+        scaffold_type = None
+        for scaffold in self._all_scaffold_types:
+            if scaffold == _scaffold_package[-1].getScaffoldType():
+                scaffold_type = scaffold
+        if scaffold_type is None:
+            raise TypeError('Scaffold Type was not found.')
+
         scaffold_package = ScaffoldPackage(scaffold_type)
         self._parameterSetName = scaffold_type.getParameterSetNames()[0]
         self._scaffold_package = scaffold_package
@@ -45,9 +51,17 @@ class ScaffoldModel(object):
         self._scaffold_is_time_aware = None
         self._scaffold_fit_parameters = None
         self._initialise_surface_material()
+        # self._timekeeper = self._scene.getTimekeepermodule().getDefaultTimekeeper()
+        # self._current_time = None
+        # self._maximum_time = None
+        # self._time_sequence = None
 
     def get_region(self):
         return self._region
+
+    # def set_time(self, time):
+    #     self._current_time = time
+    #     self._timekeeper.setTime(time)
 
     def _create_surface_graphics(self):
         self._scene.beginChange()
@@ -157,7 +171,7 @@ class ScaffoldModel(object):
             field = field_iter.next()
         raise ValueError('Could not determine model coordinate field')
 
-    def _get_node_coordinates_range(self):
+    def _get_node_coordinates_range(self, time=0):
         fm = self._coordinate_field.getFieldmodule()
         fm.beginChange()
         nodes = fm.findNodesetByFieldDomainType(Field.DOMAIN_TYPE_NODES)
@@ -165,13 +179,14 @@ class ScaffoldModel(object):
         max_coordinates = fm.createFieldNodesetMaximum(self._coordinate_field, nodes)
         components_count = self._coordinate_field.getNumberOfComponents()
         cache = fm.createFieldcache()
+        cache.setTime(time)
         result, min_x = min_coordinates.evaluateReal(cache, components_count)
         result, max_x = max_coordinates.evaluateReal(cache, components_count)
         fm.endChange()
         return min_x, max_x
 
-    def get_range(self):
-        return self._get_node_coordinates_range()
+    def get_range(self, time=0):
+        return self._get_node_coordinates_range(time=time)
 
     def get_scale(self):
         minimums, maximums = self._get_node_coordinates_range()
@@ -184,7 +199,9 @@ class ScaffoldModel(object):
         return self._scaffold_options
 
     def initialise_scaffold(self):
-        self._coordinate_field = self.get_model_coordinate_field()
+        # self._coordinate_field = self.get_model_coordinate_field()
+        self._coordinate_field = self._region.getFieldmodule().findFieldByName('coordinates')
+        print('Coordinate = ', self._coordinate_field.isValid())
 
     def _update(self):
         self._scene.beginChange()

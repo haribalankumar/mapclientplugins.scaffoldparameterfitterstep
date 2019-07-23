@@ -54,7 +54,9 @@ class ScaffoldParameterFitterStep(WorkflowStepMountPoint):
             self._model = MasterModel(rigid_aligner_description, rigid_aligner_description.data_is_temporal)
 
             shareable_widget = self._model_description.get_shareable_widget()
-            self._view = ScaffoldParameterFitterWidget(self._model, shareable_widget)
+            max_time = rigid_aligner_description.get_time_count()
+            self._view = ScaffoldParameterFitterWidget(self._model, shareable_widget,
+                                                       rigid_aligner_description.data_is_temporal, max_time)
             self._view.register_done_execution(self._myDoneExecution)
             self._view.create_graphics(rigid_aligner_description.data_is_temporal)
 
